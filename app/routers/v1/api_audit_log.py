@@ -39,7 +39,12 @@ class APIAuditLog:
         resource = request_payload.resource
         extra_info = request_payload.extra
 
+        self.__logger.debug('Project of Audit log Creation: {}'.format(project_code))
+        self.__logger.debug('Params of Audit log Creation: {}, {}, {}, {}, {}'.format(action, operator, target, outcome, resource))
+
         geid = create_geid('audit-logs')
+
+        self.__logger.debug('Geid of Audit log Creation: ' + geid)
 
         if not geid: 
             response.code = EAPIResponseCode.internal_error
@@ -65,9 +70,11 @@ class APIAuditLog:
         res = insert_one(ES_TYPE, resource, data)
 
         if res['result'] == 'created':
+            self.__logger.debug('Result of Audit log Creation: Success')
             response.code = EAPIResponseCode.success
             response.result = res
         else:
+            self.__logger.debug('Result of Audit log Creation: Failed')
             response.code = EAPIResponseCode.internal_error
             response.result = 'faied to insert audit log into elastic search'
 

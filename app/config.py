@@ -5,12 +5,20 @@ class ConfigClass(object):
 
     version = "0.1.0"
     VRE_ROOT_PATH = "/vre-data"
-    METADATA_API = "http://cataloguing.utility:5064"
-    UTILITY_SERVICE = "http://common.utility:5062/"
-    ELASTIC_SEARCH_SERVICE = "http://elasticsearch-master.utility:9200/"
-    ATLAS_API = "http://atlas.utility:21000/"
+    
     ATLAS_ADMIN = "admin"
     ATLAS_PASSWD = "admin"
+
+    if env == "test":
+        METADATA_API = "http://10.3.7.237:5064"
+        UTILITY_SERVICE = "http://10.3.7.222:5062/"
+        ELASTIC_SEARCH_SERVICE = "http://10.3.7.219:9200/"
+        ATLAS_API = "http://10.3.7.218:21000/"
+    else:
+        METADATA_API = "http://cataloguing.utility:5064"
+        UTILITY_SERVICE = "http://common.utility:5062/"
+        ELASTIC_SEARCH_SERVICE = "http://elasticsearch-master.utility:9200/"
+        ATLAS_API = "http://atlas.utility:21000/"
 
     # disk mounts
     NFS_ROOT_PATH = "./"

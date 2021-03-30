@@ -26,4 +26,3 @@ class AuditLogQuery(BaseModel):
     operator: Optional[str] = None
     start_date: Optional[int] = None
     end_date: Optional[int] = None
-
