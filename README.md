@@ -22,4 +22,3 @@ Run the service with uvicorn
 *directly run command below
 `pytest`
 
-
