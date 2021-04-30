@@ -14,17 +14,17 @@ from ...config import ConfigClass
 
 router = APIRouter()
 
-_API_TAG = 'File-Meta'
-_API_NAMESPACE = "api_file_meta"
+_API_TAG = 'File Entity'
+_API_NAMESPACE = "api_file_entity"
 
 ES_INDEX = 'files'
 
 @cbv.cbv(router)
 class APIAuditLog:
     def __init__(self):
-        self.__logger = SrvLoggerFactory('api_file_meta').get_logger()
+        self.__logger = SrvLoggerFactory('api_file_entity').get_logger()
 
-    @router.post("/file-meta", tags=[_API_TAG],
+    @router.post("/entity/file", tags=[_API_TAG],
                  summary="Create a file entity in elastic search")
     @catch_internal(_API_NAMESPACE)
     async def file_meta_creation(self, request_payload: FileMetaCreation):
@@ -33,7 +33,6 @@ class APIAuditLog:
         global_entity_id = request_payload.global_entity_id
         zone = request_payload.zone
         data_type = request_payload.data_type
-        file_type = request_payload.file_type
         operator = request_payload.operator
         tags = request_payload.tags
         archived = request_payload.archived
@@ -56,7 +55,6 @@ class APIAuditLog:
         data = {
             "zone": zone,
             "data_type": data_type,
-            "file_type": file_type,
             "operator": operator,
             "tags": tags,
             "archived": archived,
@@ -89,7 +87,7 @@ class APIAuditLog:
         return response
 
 
-    @router.get("/file-meta", tags=[_API_TAG],
+    @router.get("/entity/file", tags=[_API_TAG],
                  summary="Search file entities in elastic search")
     @catch_internal(_API_NAMESPACE)
     async def file_meta_query(
@@ -112,27 +110,40 @@ class APIAuditLog:
                     "field": "attributes",
                     "range": False,
                     "name": queries['attributes']['name'],
-                    "attribute_name": queries['attributes']['attribute_name'],
                     "multi_values": False
                 }
 
-                if queries['attributes']['type'] == 'text':
-                    if queries['attributes']['condition'] == 'contain':
-                        filed_params['value'] = '*{}*'.format(queries['attributes']['value'])
-                        filed_params['search_type'] = 'wildcard'
-                    else:
-                        filed_params['value'] = queries['attributes']['value']
-                        filed_params['search_type'] = 'match'
-                else:
-                    if queries['attributes']['condition'] == 'contain':
-                        filed_params['search_type'] = 'should'
-                    else:
-                        filed_params['search_type'] = 'must'
-
-                    filed_params['value'] = queries['attributes']['value']
-                    filed_params['multi_values'] = True
-            
                 search_params.append(filed_params)
+
+                if 'attributes' in queries['attributes']:
+                    for record in queries['attributes']['attributes']:
+                        filed_params = {
+                            "nested": True,
+                            "field": "attributes",
+                            "range": False,
+                            "name": queries['attributes']['name'],
+                            "multi_values": False
+                        }
+
+                        filed_params["attribute_name"] = record['attribute_name']
+
+                        if record['type'] == 'text':
+                            if record['condition'] == 'contain':
+                                filed_params['value'] = '*{}*'.format(record['value'])
+                                filed_params['search_type'] = 'wildcard'
+                            else:
+                                filed_params['value'] = record['value']
+                                filed_params['search_type'] = 'match'
+                        else:
+                            if record['condition'] == 'contain':
+                                filed_params['search_type'] = 'should'
+                            else:
+                                filed_params['search_type'] = 'must'
+
+                            filed_params['value'] = record['value']
+                            filed_params['multi_values'] = True
+            
+                        search_params.append(filed_params)
             
             elif key == 'time_created' or key == 'file_size':
                 filed_params = {
@@ -174,7 +185,7 @@ class APIAuditLog:
         return response
 
 
-    @router.put("/file-meta", tags=[_API_TAG],
+    @router.put("/entity/file", tags=[_API_TAG],
                  summary="Update a file entity in elastic search")
     @catch_internal(_API_NAMESPACE)
     async def file_meta_update(self, request_payload: FileMetaUpdate):
@@ -194,7 +205,8 @@ class APIAuditLog:
 
         res = update_one_by_id(ES_INDEX, global_entity_id, updated_fields)
 
-        if res['result'] == 'updated':
+        if res['result'] == 'updated' or res['result'] == 'noop':
+            res['result'] = 'updated'
             self.__logger.debug('Result of Filemeta Update: Success')
             response.code = EAPIResponseCode.success
             response.result = res
@@ -207,7 +219,7 @@ class APIAuditLog:
 
 
 
-    @router.get("/file-meta/search-rules", tags=[_API_TAG],
+    @router.get("/entity/file/search-rules", tags=[_API_TAG],
                  summary="Return searchable fileds")
     @catch_internal(_API_NAMESPACE)
     async def search_rules(self):
@@ -228,10 +240,10 @@ class APIAuditLog:
                 result.append({ "filed": "uploader", "conditions": ["contain", "equal"], "type": "string"})
             if key == 'tags':
                 result.append({ "filed": "tags", "conditions": ["contain", "equal"], "type": "array"})
-            if key == 'manifest':
-                result.append({ "filed": "manifest", "conditions": ["equal"], "type": "array"})
             if key == 'time_created':
                 result.append({ "filed": "timeCreated", "conditions": ["equal"], "type": "date"})
+            if key == 'attributes':
+                result.append({ "filed": "attributes", "conditions": ["equal"], "type": "array"})
 
 
         response.code = EAPIResponseCode.success

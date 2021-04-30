@@ -7,6 +7,7 @@ import requests
 import pprint
 import time
 import json
+from unittest import mock
 
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -21,7 +22,7 @@ class TestFileMeta(unittest.TestCase):
     uploader2 = 'unit_test_admin2'
     uploader3 = 'unit_test_admin3'
 
-    url = '/v1/file-meta'
+    url = '/v1/entity/file'
 
     @classmethod
     def create_file(self):
@@ -75,7 +76,7 @@ class TestFileMeta(unittest.TestCase):
         payload2["attributes"] = [{
             "name": "Attribute1",
             "attribute_name": "attr1",
-            "value": ["a1", "a2"]
+            "value": ["a2"]
         },{
             "name": "Attribute1",
             "attribute_name": "attr2",
@@ -122,7 +123,7 @@ class TestFileMeta(unittest.TestCase):
             "attributes": [{
                 "name": "Attribute1",
                 "attribute_name": "attr1",
-                "value": ["a1", "a3"]
+                "value": ["a3"]
             },
             {
                 "name": "Attribute1",
@@ -311,8 +312,8 @@ class TestFileMeta(unittest.TestCase):
         self.assertEqual(len(equal_result), len(data))
 
     
-    def test_06_query_files(self):
-        # search with attributes
+    def test_07_query_files(self):
+        # fuzz search with attributes
         query = {
             "project_code": {
                 "value": self.project_code,
@@ -320,10 +321,12 @@ class TestFileMeta(unittest.TestCase):
             },
             "attributes": {
                 "name": "Attribute1",
-                "attribute_name": "attr1",
-                "value": ["a1"], 
-                "type": "multiple choice",
-                "condition": "contain"
+                "attributes": [{
+                    "attribute_name": "attr1",
+                    "value": ["a1"], 
+                    "type": "multiple choice",
+                    "condition": "contain"
+                }]
             }
         }
 
@@ -346,7 +349,7 @@ class TestFileMeta(unittest.TestCase):
                         containe_result.append(record)
         self.assertEqual(len(containe_result), len(data))
 
-        
+        # Exact search with attributes
         query = {
             "project_code": {
                 "value": self.project_code,
@@ -354,10 +357,48 @@ class TestFileMeta(unittest.TestCase):
             },
             "attributes": {
                 "name": "Attribute1",
-                "attribute_name": "attr1",
-                "value": ["a1"], 
-                "type": "multiple choice",
+                "attributes": [{
+                    "attribute_name": "attr1",
+                    "value": ["a1"], 
+                    "type": "multiple choice",
+                    "condition": "equal"
+                }]
+            }
+        }
+
+        query = json.dumps(query)
+
+        res = self.client.get(self.url, params={"query": query, "page_size": 10,  "sort_by": "time_created", "sort_type": "desc" })
+        result = res.json()
+        data = result["result"]
+
+        containe_result = []
+        for record in data:
+            attribute = record['_source']
+            attributes = attribute['attributes']
+
+            for item in attributes:
+                if item['name'] == "Attribute1" and item["attribute_name"] == "attr1":
+                    value = item["value"]
+
+                    if ["a1"] == value:
+                        containe_result.append(record)
+        self.assertEqual(len(containe_result), len(data))
+
+        # Exact Search on attribute text
+        query = {
+            "project_code": {
+                "value": self.project_code,
                 "condition": "equal"
+            },
+            "attributes": {
+                "name": "Attribute1",
+                "attributes": [{
+                    "attribute_name": "attr2",
+                    "value": "lalala2", 
+                    "type": "text",
+                    "condition": "equal"
+                }]
             }
         }
 
@@ -373,9 +414,180 @@ class TestFileMeta(unittest.TestCase):
             attributes = attribute['attributes']
 
             for item in attributes:
-                if item['name'] == "Attribute1" and item["attribute_name"] == "attr1":
+                if item['name'] == "Attribute1" and item["attribute_name"] == "attr2":
                     value = item["value"]
 
-                    if value == ["a1"]:
+                    if value == "lalala2":
                         equal_result.append(record)
-        # self.assertEqual(len(equal_result), len(data))
+
+        self.log.info(f"data: {data}")
+        self.assertEqual(len(equal_result), len(data))
+
+        # Fuzz Search on attribute text
+        query = {
+            "project_code": {
+                "value": self.project_code,
+                "condition": "equal"
+            },
+            "attributes": {
+                "name": "Attribute1",
+                "attributes": [{
+                    "attribute_name": "attr2",
+                    "value": "lala", 
+                    "type": "text",
+                    "condition": "contain"
+                }]
+            }
+        }
+
+        query = json.dumps(query)
+
+        res = self.client.get(self.url, params={"query": query, "page_size": 10,  "sort_by": "time_created", "sort_type": "asc" })
+        result = res.json()
+        data = result["result"]
+
+        equal_result = []
+        for record in data:
+            attribute = record['_source']
+            attributes = attribute['attributes']
+
+            for item in attributes:
+                if item['name'] == "Attribute1" and item["attribute_name"] == "attr2":
+                    value = item["value"]
+
+                    if value == "lala":
+                        equal_result.append(record)
+
+        self.log.info(f"data: {data}")
+        self.assertLessEqual(len(equal_result), len(data))
+
+    def test_08_query_search_rules(self):
+        url = self.url + '/search-rules'
+        res = self.client.get(url)
+        result = res.json()
+        data = result["result"]
+
+        required_fields = ['fileName', 'tags', 'timeCreated', 'uploader', 'attributes']
+
+        self.assertGreaterEqual(len(data), len(required_fields))
+
+    def test_09_update_file(self):
+        query = {
+            "project_code": {
+                "value": self.project_code,
+                "condition": "equal"
+            }
+        }
+
+        query = json.dumps(query)
+
+        res = self.client.get(self.url, params={"query": query, "page_size": 10,  "sort_by": "time_created", "sort_type": "asc" })
+        result = res.json()
+        data = result["result"]
+
+        first_file = data[0]
+        entiry_id = first_file['_id']
+
+        current_timestamp = time.time()
+        
+        payload = {
+            "global_entity_id": entiry_id,
+            "updated_fields": {
+                "file_name": "updated_file_name"
+            }
+        }
+
+        update_res = self.client.put(self.url, json=payload)
+        result = update_res.json()
+        data = result["result"]
+        self.log.info(f"Update Result: {result}")
+        self.assertEqual(data["result"], "updated")
+
+        payload["updated_fields"]["time_lastmodified"] = int(current_timestamp)
+        self.log.info(f"Update payload: {payload}")
+        update_res = self.client.put(self.url, json=payload)
+        result = update_res.json()
+        data = result["result"]
+        self.log.info(f"Update Result: {result}")
+        self.assertEqual(data["result"], "updated")
+
+        query = {
+            "project_code": {
+                "value": self.project_code,
+                "condition": "equal"
+            },
+            "file_name": {
+                "value": "updated_file_name",
+                "condition": "equal"
+            }
+        }
+
+        query = json.dumps(query)
+
+        res = self.client.get(self.url, params={"query": query, "page_size": 10,  "sort_by": "time_created", "sort_type": "desc" })
+        result = res.json()
+        data = result["result"]
+        self.log.info(f"Query Result: {result}")
+
+        self.assertGreaterEqual(len(data), 0)
+
+    def test_10_query_files(self):
+        with mock.patch('requests.put') as mock_request:
+            mock_request.return_value.status_code = 500
+            current_timestamp = time.time()
+            payload1 = {
+                "global_entity_id": "string_{}".format(current_timestamp),
+                "data_type": "File",
+                "file_type": "string",
+                "operator": self.uploader3,
+                "zone": "string",
+                "file_size": 10,
+                "tags": [
+                    "tag1"
+                ],
+                "archived": False,
+                "path": "string",
+                "time_lastmodified": int(current_timestamp),
+                "time_created": int(current_timestamp),
+                "process_pipeline": "string",
+                "uploader": self.uploader3,
+                "file_name": "string",
+                "atlas_guid": "string",
+                "full_path": "string",
+                "generate_id": "string",
+                "project_code": self.project_code,
+                "attributes": [{
+                    "name": "Attribute1",
+                    "attribute_name": "attr1",
+                    "value": ["a3"]
+                },
+                {
+                    "name": "Attribute1",
+                    "attribute_name": "attr2",
+                    "value": "lalala2"
+                }],
+                "priority": 20
+            }
+
+            res = self.client.post(self.url, json=payload1)
+            result = res.json()
+            self.log.info(result)
+            self.assertEqual(result.get('code'), 500)
+            self.assertIn('faied to insert Filemeta into elastic search', result.get('result'))
+
+    def test_11_query_files(self):
+        with mock.patch('requests.post') as mock_request:
+            mock_request.return_value.status_code = 500
+            current_timestamp = time.time()
+            entiry_id = 123
+            payload = {
+                "global_entity_id": entiry_id,
+                "updated_fields": {
+                    "file_name": "updated_file_name".format(int(current_timestamp))
+                }
+            }
+            update_res = self.client.put(self.url, json=payload)
+            result = update_res.json()
+            self.log.info(result)
+            self.assertEqual(result.get('code'), 500)
+            self.assertEqual(result.get('result'), 'Faied to Update Filemeta in elastic search')

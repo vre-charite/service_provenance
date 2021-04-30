@@ -10,7 +10,6 @@ class FileMetaCreation(BaseModel):
     '''
     global_entity_id: str
     data_type: Optional[str] = 'File'
-    file_type: str
     operator: str
     zone: str
     file_size: int

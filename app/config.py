@@ -1,11 +1,12 @@
 import os
+# os.environ['env'] = 'test'
 
 class ConfigClass(object):
     env = os.environ.get('env')
 
     version = "0.1.0"
     VRE_ROOT_PATH = "/vre-data"
-    
+
     ATLAS_ADMIN = "admin"
     ATLAS_PASSWD = "admin"
 

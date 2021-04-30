@@ -44,7 +44,10 @@ class Lineage:
         else:
             self._logger.error('Error: %s', response.text)
             api_response.error_msg = response.text
-            api_response.code = EAPIResponseCode.internal_error
+            if "ATLAS-404" in response.json().get("errorCode"):
+                api_response.code = EAPIResponseCode.not_found
+            else:
+                api_response.code = EAPIResponseCode.internal_error
             return api_response.json_response()
         return api_response.json_response()
 
@@ -89,7 +92,10 @@ class Lineage:
         except Exception as e:
             self._logger.error('Error in create lineage: %s', str(e))
             api_response.error_msg = str(e)
-            api_response.code = EAPIResponseCode.forbidden
+            if "Not Found Entity" in str(e):
+                api_response.code = EAPIResponseCode.not_found
+            else:
+                api_response.code = EAPIResponseCode.forbidden
             return api_response.json_response()
         api_response.result = res.json()
         return api_response.json_response()

@@ -48,10 +48,11 @@ class SrvLineageMgr(metaclass=MetaService):
         output_file_name = os.path.basename(self.get_full_path_by_geid(creation_form.output_geid, typenames[1]))
         self._logger.debug('[SrvLineageMgr]input_file_path: ' + creation_form.input_geid)
         self._logger.debug('[SrvLineageMgr]output_file_path: ' + creation_form.output_geid)
-        dt = datetime.datetime.now() - datetime.timedelta(seconds=2) ## temporary solution
-        utc_time = dt.replace(tzinfo = datetime.timezone.utc) 
-        current_timestamp = utc_time.timestamp() if not creation_form.process_timestamp \
-            else creation_form.process_timestamp
+        # dt = datetime.datetime.now() - datetime.timedelta(seconds=2) ## temporary solution
+        # utc_time = dt.replace(tzinfo = datetime.timezone.utc)
+        # current_timestamp = utc_time.timestamp() if not creation_form.process_timestamp \
+        #     else creation_form.process_timestamp
+        current_timestamp = time() if not creation_form.process_timestamp else creation_form.process_timestamp
         qualifiedName = '{}:{}:{}:{}:to:{}'.format(
             creation_form.project_code,
             creation_form.pipeline_name,

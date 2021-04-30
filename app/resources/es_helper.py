@@ -85,32 +85,34 @@ def file_search(es_index, page, page_size, data, sort_by=None, sort_type=None):
     for item in data:
         if item['nested']:
             field_values = [
-                { "match": { "attributes.name": item['name'] }},
-                { "match": { "attributes.attribute_name": item['attribute_name'] }}
+                { "match": { "attributes.name": item['name'] }}
             ]
 
-            if item['search_type'] == 'wildcard':
-                field_values.append({ "wildcard": { "attributes.value": item['value'] }})
-            elif item['search_type'] == 'match':
-                field_values.append({ "match": { "attributes.value": item['value'] }})
-            elif item['search_type'] == 'should':
-                options = []
-                for option in item['value']:
-                    options.append({ "term": { "attributes.value": option }})
-                field_values.append({
-                    "bool": {
-                        "should": options
-                    }
-                })
-            elif item['search_type'] == 'must':
-                options = []
-                for option in item['value']:
-                    options.append({ "term": { "attributes.value": option }})
-                field_values.append({
-                    "bool": {
-                        "must": options
-                    }
-                })
+            if 'attribute_name' in item:
+                field_values.append({ "match": { "attributes.attribute_name": item['attribute_name'] }})
+            if 'search_type' in item:
+                if item['search_type'] == 'wildcard':
+                    field_values.append({ "wildcard": { "attributes.value": item['value'] }})
+                elif item['search_type'] == 'match':
+                    field_values.append({ "match": { "attributes.value": item['value'] }})
+                elif item['search_type'] == 'should':
+                    options = []
+                    for option in item['value']:
+                        options.append({ "match": { "attributes.value": option }})
+                    field_values.append({
+                        "bool": {
+                            "should": options
+                        }
+                    })
+                elif item['search_type'] == 'must':
+                    options = []
+                    for option in item['value']:
+                        options.append({ "match": { "attributes.value": option }})
+                    field_values.append({
+                        "bool": {
+                            "must": options
+                        }
+                    })
 
             search_fields.append({
                 "nested": {
@@ -124,22 +126,34 @@ def file_search(es_index, page, page_size, data, sort_by=None, sort_type=None):
             })
         elif item['range']:
             if len(item['range']) == 1:
+                value = str(item['range'][0])
+                if len(value) > 20:
+                    value = value[:19]
                 if item['search_type'] == 'lte':
                     search_fields.append({
                         "range": {
-                            item['field']: {"lte": int(item['range'][0])}
+                            item['field']: {"lte": int(value)}
                         }
                     })
                 else:
                     search_fields.append({
                         "range": {
-                            item['field']: {"gte": int(item['range'][0])}
+                            item['field']: {"gte": int(value)}
                         }
                     })
             else:
+                value1 = str(item['range'][0])
+                value2 = str(item['range'][1])
+
+                if len(value1) > 20:
+                    value1 = value1[:19]
+
+                if len(value2) > 20:
+                    value2 = value2[:19]
+
                 search_fields.append({
                     "range": {
-                        item['field']: {"gte": int(item['range'][0]), "lte": int(item['range'][1])}
+                        item['field']: {"gte": int(value1), "lte": int(value2)}
                     }
                 })
         elif item['multi_values']:
@@ -185,9 +199,6 @@ def file_search(es_index, page, page_size, data, sort_by=None, sort_type=None):
             {sort_by: sort_type}
         ]
     }
-
-    print(url)
-    print(search_params)
 
     res = requests.get(url, json=search_params)
     return res.json()

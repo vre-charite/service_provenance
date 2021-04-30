@@ -21,4 +21,3 @@ Run the service with uvicorn
 ### Unit Test
 *directly run command below
 `pytest`
-
