@@ -2,25 +2,27 @@ import requests
 import time
 from ..config import ConfigClass
 
+
 def exact_search(es_type, es_index, page, page_size, params, sort_by=None, sort_type=None):
-    url = ConfigClass.ELASTIC_SEARCH_SERVICE + '{}/{}/_search'.format(es_index, es_type)
+    url = ConfigClass.ELASTIC_SEARCH_SERVICE + \
+        '{}/{}/_search'.format(es_index, es_type)
 
     search_params = []
 
     for key, value in params.items():
         if key != 'createdTime':
             search_params.append({
-                "constant_score" : {
-                    "filter" : {
-                        "term" : {
-                            key : value
+                "constant_score": {
+                    "filter": {
+                        "term": {
+                            key: value
                         }
                     }
                 }
             })
         else:
             search_params.append({
-                "constant_score" : {
+                "constant_score": {
                     "filter": {
                         "range": {
                             "createdTime": {"gte": value[0], "lte": value[1]}
@@ -29,7 +31,7 @@ def exact_search(es_type, es_index, page, page_size, params, sort_by=None, sort_
                 }
             })
     search_data = {
-        "query" : {
+        "query": {
             "bool": {
                 "must": search_params
             }
@@ -46,14 +48,17 @@ def exact_search(es_type, es_index, page, page_size, params, sort_by=None, sort_
 
 
 def insert_one(es_type, es_index, data):
-    url = ConfigClass.ELASTIC_SEARCH_SERVICE + '{}/{}'.format(es_index, es_type)
+    url = ConfigClass.ELASTIC_SEARCH_SERVICE + \
+        '{}/{}'.format(es_index, es_type)
 
     res = requests.post(url, json=data)
 
     return res.json()
 
+
 def insert_one_by_id(es_type, es_index, data, id):
-    url = ConfigClass.ELASTIC_SEARCH_SERVICE + '{}/{}/{}'.format(es_index, es_type, id)
+    url = ConfigClass.ELASTIC_SEARCH_SERVICE + \
+        '{}/{}/{}'.format(es_index, es_type, id)
 
     res = requests.put(url, json=data)
 
@@ -66,8 +71,10 @@ def get_mappings(es_index):
 
     return res.json()
 
+
 def update_one_by_id(es_index, id, fields):
-    url = ConfigClass.ELASTIC_SEARCH_SERVICE + '{}/_update/{}'.format(es_index, id)
+    url = ConfigClass.ELASTIC_SEARCH_SERVICE + \
+        '{}/_update/{}'.format(es_index, id)
 
     request_body = {
         "doc": fields
@@ -85,20 +92,23 @@ def file_search(es_index, page, page_size, data, sort_by=None, sort_type=None):
     for item in data:
         if item['nested']:
             field_values = [
-                { "match": { "attributes.name": item['name'] }}
+                {"match": {"attributes.name": item['name']}}
             ]
 
             if 'attribute_name' in item:
-                field_values.append({ "match": { "attributes.attribute_name": item['attribute_name'] }})
+                field_values.append(
+                    {"match": {"attributes.attribute_name": item['attribute_name']}})
             if 'search_type' in item:
                 if item['search_type'] == 'wildcard':
-                    field_values.append({ "wildcard": { "attributes.value": item['value'] }})
+                    field_values.append(
+                        {"wildcard": {"attributes.value": item['value']}})
                 elif item['search_type'] == 'match':
-                    field_values.append({ "match": { "attributes.value": item['value'] }})
+                    field_values.append(
+                        {"match": {"attributes.value": item['value']}})
                 elif item['search_type'] == 'should':
                     options = []
                     for option in item['value']:
-                        options.append({ "match": { "attributes.value": option }})
+                        options.append({"match": {"attributes.value": option}})
                     field_values.append({
                         "bool": {
                             "should": options
@@ -107,7 +117,7 @@ def file_search(es_index, page, page_size, data, sort_by=None, sort_type=None):
                 elif item['search_type'] == 'must':
                     options = []
                     for option in item['value']:
-                        options.append({ "match": { "attributes.value": option }})
+                        options.append({"match": {"attributes.value": option}})
                     field_values.append({
                         "bool": {
                             "must": options
@@ -159,8 +169,8 @@ def file_search(es_index, page, page_size, data, sort_by=None, sort_type=None):
         elif item['multi_values']:
             options = []
             for option in item['value']:
-                options.append({ "term": { item['field']: option }})
-            
+                options.append({"term": {item['field']: option}})
+
             if item['search_type'] == 'should':
                 search_fields.append({
                     "bool": {
@@ -178,6 +188,18 @@ def file_search(es_index, page, page_size, data, sort_by=None, sort_type=None):
                 search_fields.append({
                     "wildcard": {
                         item['field']: '*{}*'.format(item['value'])
+                    }
+                })
+            elif item['search_type'] == 'start_with':
+                search_fields.append({
+                    "wildcard": {
+                        item['field']: '{}*'.format(item['value'])
+                    }
+                })
+            elif item['search_type'] == 'end_with':
+                search_fields.append({
+                    "wildcard": {
+                        item['field']: '*{}'.format(item['value'])
                     }
                 })
             else:

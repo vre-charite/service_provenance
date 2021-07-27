@@ -1,13 +1,16 @@
 from fastapi import APIRouter, Depends
 from fastapi_utils.cbv import cbv
 from app.models.base_models import APIResponse, EAPIResponseCode
-from app.models.models_lineage import GETLineage, GETLineageResponse, POSTLineage, POSTLineageResponse, creation_form_factory 
+from app.models.models_lineage import GETLineage, GETLineageResponse, POSTLineage, POSTLineageResponse, creation_form_factory
 from app.config import ConfigClass
 from app.commons.atlas.lineage_manager import SrvLineageMgr
 from app.commons.logger_services.logger_factory_service import SrvLoggerFactory
+from app.resources.neo4j_helper import http_query_node
 import requests
+import os
 
 router = APIRouter()
+
 
 @cbv(router)
 class Lineage:
@@ -27,14 +30,17 @@ class Lineage:
         if response.status_code == 200:
             response_json = response.json()
             if response_json['guidEntityMap']:
+                add_display_path(response_json['guidEntityMap'])
                 pass
             else:
-                res_default_entity = self.lineage_mgr.search_entity(geid, type_name=type_name)
+                res_default_entity = self.lineage_mgr.search_entity(
+                    geid, type_name=type_name)
                 if res_default_entity.status_code == 200 and len(res_default_entity.json()['entities']) > 0:
                     default_entity = res_default_entity.json()['entities'][0]
                     response_json['guidEntityMap'] = {
                         '{}'.format(default_entity['guid']): default_entity
                     }
+                    add_display_path(response_json['guidEntityMap'])
                 else:
                     api_response.error_msg = "Invalid Entity"
                     api_response.code = EAPIResponseCode.bad_request
@@ -50,7 +56,6 @@ class Lineage:
                 api_response.code = EAPIResponseCode.internal_error
             return api_response.json_response()
         return api_response.json_response()
-
 
     @router.post('/', response_model=POSTLineageResponse, summary="POST Lineage")
     def post(self, data: POSTLineage):
@@ -81,7 +86,7 @@ class Lineage:
             return api_response.json_response()
 
         try:
-            ## create atlas lineage
+            # create atlas lineage
             res = self.lineage_mgr.create(creation_form, version='v2')
             # log it if not 200 level response
             if res.status_code >= 300:
@@ -99,3 +104,35 @@ class Lineage:
             return api_response.json_response()
         api_response.result = res.json()
         return api_response.json_response()
+
+
+def add_display_path(guidEntityMap):
+    for key, value in guidEntityMap.items():
+        if value['typeName'] == 'Process':
+            continue
+        else:
+            node_label = 'File'
+
+            node_res = http_query_node(
+                node_label, {"global_entity_id": value['attributes']['global_entity_id']})
+
+            if node_res.status_code != 200:
+                continue
+
+            node_data = node_res.json()
+            if len(node_data) == 0:
+                node_res = http_query_node(
+                    'TrashFile', {"global_entity_id": value['attributes']['global_entity_id']})
+                if node_res.status_code != 200:
+                    continue
+                node_data = node_res.json()
+                if len(node_data) == 0:
+                    continue
+
+            labels = node_data[0]['labels']
+            value['attributes']['zone'] = labels
+
+            if 'display_path' in node_data[0]:
+                value['attributes']['display_path'] = node_data[0]['display_path']
+            else:
+                value['attributes']['display_path'] = value['attributes']['full_path']

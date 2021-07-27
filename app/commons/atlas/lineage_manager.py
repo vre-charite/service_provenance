@@ -44,8 +44,11 @@ class SrvLineageMgr(metaclass=MetaService):
         ## v2 uses new entity type, v1 uses old one
         typenames = self.lineage_to_typename(creation_form.pipeline_name) if version == 'v1' else ['file_data', 'file_data']
         ## to atlas post form
-        input_file_name = os.path.basename(self.get_full_path_by_geid(creation_form.input_geid, typenames[0]))
-        output_file_name = os.path.basename(self.get_full_path_by_geid(creation_form.output_geid, typenames[1]))
+        # input_file_name = os.path.basename(self.get_full_path_by_geid(creation_form.input_geid, typenames[0]))
+        # output_file_name = os.path.basename(self.get_full_path_by_geid(creation_form.output_geid, typenames[1]))
+        input_file_name = self.get_file_name_by_geid(creation_form.input_geid)
+        output_file_name = self.get_file_name_by_geid(creation_form.output_geid)
+
         self._logger.debug('[SrvLineageMgr]input_file_path: ' + creation_form.input_geid)
         self._logger.debug('[SrvLineageMgr]output_file_path: ' + creation_form.output_geid)
         # dt = datetime.datetime.now() - datetime.timedelta(seconds=2) ## temporary solution
@@ -143,6 +146,7 @@ class SrvLineageMgr(metaclass=MetaService):
             self._logger.error('Error when get_guid_by_geid: ' + search_res.text)
             return None
 
+    # deprecated with the full path
     def get_full_path_by_geid(self, geid, type_name=None):
         search_res = self.search_entity(geid, type_name)
         if search_res.status_code == 200:
@@ -154,6 +158,18 @@ class SrvLineageMgr(metaclass=MetaService):
         else:
             self._logger.error('Error when get_full_path_by_geid: ' + search_res.text)
             return None
+
+
+    def get_file_name_by_geid(self, geid):
+        node_query_url = ConfigClass.NEO4J_SERVICE + "nodes/geid/%s"%(geid)
+        response = requests.get(node_query_url)
+
+        # here if we dont find any node then return None
+        if len(response.json()) == 0:
+            return None
+
+        return response.json()[0].get("name")
+
 
     def mirror_file_data_lineage(self, input_relation_info: dict, output_relation_info: dict,
         guid_map: dict):

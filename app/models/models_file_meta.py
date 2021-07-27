@@ -15,18 +15,20 @@ class FileMetaCreation(BaseModel):
     file_size: int
     tags: list
     archived: bool
-    path: str
+    location: str
     time_lastmodified: int
     time_created: int
     process_pipeline: str
     uploader: str
     file_name: str
     atlas_guid: str
-    full_path: str
+    display_path: str
     generate_id: Optional[str] = None
     project_code: str
     attributes: Optional[list] = []
     priority: Optional[int] = 20
+    version: Optional[str] = None
+
 
 class FileMetaUpdate(BaseModel):
     '''
