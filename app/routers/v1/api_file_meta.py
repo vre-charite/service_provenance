@@ -31,6 +31,8 @@ class APIAuditLog:
     async def file_meta_creation(self, request_payload: FileMetaCreation):
         response = APIResponse()
 
+        self.__logger.info(f'file creation payload: {str(request_payload)}')
+
         global_entity_id = request_payload.global_entity_id
         zone = request_payload.zone
         data_type = request_payload.data_type
@@ -52,7 +54,7 @@ class APIAuditLog:
         priority = request_payload.priority
         version = request_payload.version
 
-        self.__logger.debug(
+        self.__logger.info(
             'Project of File Meta Creation: {}'.format(project_code))
 
         data = {
@@ -80,11 +82,11 @@ class APIAuditLog:
         res = insert_one_by_id('_doc', ES_INDEX, data, global_entity_id)
 
         if res['result'] == 'created':
-            self.__logger.debug('Result of Filemeta Creation: Success')
+            self.__logger.info('Result of Filemeta Creation: Success')
             response.code = EAPIResponseCode.success
             response.result = res
         else:
-            self.__logger.debug('Result of Filemeta Creation: Failed')
+            self.__logger.error('Result of Filemeta Creation: Failed')
             response.code = EAPIResponseCode.internal_error
             response.result = 'faied to insert Filemeta into elastic search, {}'.format(
                 res)

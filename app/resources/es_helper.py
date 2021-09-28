@@ -1,6 +1,9 @@
 import requests
 import time
 from ..config import ConfigClass
+from ..commons.logger_services.logger_factory_service import SrvLoggerFactory
+
+__logger = SrvLoggerFactory('es_helper').get_logger()
 
 
 def exact_search(es_type, es_index, page, page_size, params, sort_by=None, sort_type=None):
@@ -61,6 +64,9 @@ def insert_one_by_id(es_type, es_index, data, id):
         '{}/{}/{}'.format(es_index, es_type, id)
 
     res = requests.put(url, json=data)
+
+    __logger.info('Inserting url: {}'.format(url))
+    __logger.info('Inserting data: {}'.format(data))
 
     return res.json()
 
@@ -221,6 +227,9 @@ def file_search(es_index, page, page_size, data, sort_by=None, sort_type=None):
             {sort_by: sort_type}
         ]
     }
+
+    __logger.info('Searching url: {}'.format(url))
+    __logger.info('Searching data: {}'.format(search_params))
 
     res = requests.get(url, json=search_params)
     return res.json()
