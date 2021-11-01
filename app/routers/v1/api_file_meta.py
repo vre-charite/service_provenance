@@ -213,8 +213,8 @@ class APIAuditLog:
 
         res = update_one_by_id(ES_INDEX, global_entity_id, updated_fields)
 
-        if res['result'] == 'updated' or res['result'] == 'noop':
-            res['result'] = 'updated'
+        if res.get('result') == 'updated' or res.get('result') == 'noop':
+            res.update({'result':'updated'})
             self.__logger.debug('Result of Filemeta Update: Success')
             response.code = EAPIResponseCode.success
             response.result = res
