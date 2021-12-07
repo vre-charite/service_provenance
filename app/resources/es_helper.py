@@ -11,19 +11,10 @@ def exact_search(es_type, es_index, page, page_size, params, sort_by=None, sort_
         '{}/{}/_search'.format(es_index, es_type)
 
     search_params = []
+    wildcard_action = {}
 
     for key, value in params.items():
-        if key != 'createdTime':
-            search_params.append({
-                "constant_score": {
-                    "filter": {
-                        "term": {
-                            key: value
-                        }
-                    }
-                }
-            })
-        else:
+        if key == "createdTime":
             search_params.append({
                 "constant_score": {
                     "filter": {
@@ -33,11 +24,30 @@ def exact_search(es_type, es_index, page, page_size, params, sort_by=None, sort_
                     }
                 }
             })
+
+        # use the or operation or join the actions.
+        elif key == "action":
+            search_params.append({
+                    "bool": {
+                        "should": [ {"term": {"action": x}} for x in value]
+                    }
+            })
+        else:
+            search_params.append({
+                "constant_score": {
+                    "filter": {
+                        "term": {
+                            key: value
+                        }
+                    }
+                }
+            })
+            
     search_data = {
         "query": {
             "bool": {
-                "must": search_params
-            }
+                "must": search_params,
+            },
         },
         "size": page_size,
         "from": page * page_size,
@@ -46,7 +56,11 @@ def exact_search(es_type, es_index, page, page_size, params, sort_by=None, sort_
         ]
     }
 
+    print(search_data)
+
     res = requests.get(url, json=search_data)
+    print(res.json())
+
     return res.json()
 
 

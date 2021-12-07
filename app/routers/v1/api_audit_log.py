@@ -119,13 +119,22 @@ class APIAuditLog:
             "projectCode" : project_code,
         }
 
-        if action:
-            params['action'] = action
+        try:
+            # for actions, we might have the `all` keyword to fetch all 4 actions.
+            if action == "all":
+                params['action'] = ["data_upload", "data_download", 
+                    "data_transfer", "data_delete"]
+            elif action:
+                params['action'] = [action]
 
-        if operator:
-            params['operator'] = operator
+            if operator:
+                params['operator'] = operator
 
-        res = exact_search(ES_TYPE, resource, page, page_size, params, sort_by, sort_type)
+
+            res = exact_search(ES_TYPE, resource, page, page_size, params, sort_by, sort_type)
+        
+        except Exception as e:
+            self.__logger.info(e)
 
         response = APIResponse()
         response.code = EAPIResponseCode.success
