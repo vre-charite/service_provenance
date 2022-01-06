@@ -25,7 +25,7 @@ spec:
     spec:
       containers:
         - name: provenance
-          image: 10.32.42.225:5000/provenance:<VERSION>
+          image: s-hdp-vre-v007.charite.de/provenance:<VERSION>
           ports:
             - containerPort: 5077
           env:
