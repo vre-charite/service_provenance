@@ -1,13 +1,31 @@
+# Copyright 2022 Indoc Research
+# 
+# Licensed under the EUPL, Version 1.2 or – as soon they
+# will be approved by the European Commission - subsequent
+# versions of the EUPL (the "Licence");
+# You may not use this work except in compliance with the
+# Licence.
+# You may obtain a copy of the Licence at:
+# 
+# https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+# 
+# Unless required by applicable law or agreed to in
+# writing, software distributed under the Licence is
+# distributed on an "AS IS" basis,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied.
+# See the Licence for the specific language governing
+# permissions and limitations under the Licence.
+# 
+
 import requests
 from ..config import ConfigClass
 
-def http_query_node(primary_label, query_params={}):
+def http_query_node(geid):
     '''
-    primary_label i.e. Folder, File, Container
+    Get file node by geid
     '''
-    payload = {
-        **query_params
-    }
-    node_query_url = ConfigClass.NEO4J_SERVICE + "nodes/{}/query".format(primary_label)
-    response = requests.post(node_query_url, json=payload)
+
+    node_query_url = ConfigClass.NEO4J_SERVICE + "nodes/geid/{}".format(geid)
+    response = requests.get(node_query_url)
     return response

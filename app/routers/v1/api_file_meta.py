@@ -1,3 +1,23 @@
+# Copyright 2022 Indoc Research
+# 
+# Licensed under the EUPL, Version 1.2 or – as soon they
+# will be approved by the European Commission - subsequent
+# versions of the EUPL (the "Licence");
+# You may not use this work except in compliance with the
+# Licence.
+# You may obtain a copy of the Licence at:
+# 
+# https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+# 
+# Unless required by applicable law or agreed to in
+# writing, software distributed under the Licence is
+# distributed on an "AS IS" basis,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied.
+# See the Licence for the specific language governing
+# permissions and limitations under the Licence.
+# 
+
 import time
 from datetime import datetime, timedelta
 import requests
@@ -48,7 +68,7 @@ class APIAuditLog:
         file_size = request_payload.file_size
         atlas_guid = request_payload.atlas_guid
         display_path = request_payload.display_path
-        generate_id = request_payload.generate_id
+        dcm_id = request_payload.dcm_id
         attributes = request_payload.attributes
         project_code = request_payload.project_code
         priority = request_payload.priority
@@ -72,7 +92,7 @@ class APIAuditLog:
             "file_size": file_size,
             "atlas_guid": atlas_guid,
             "display_path": display_path,
-            "generate_id": generate_id,
+            "dcm_id": dcm_id,
             "attributes": attributes,
             "project_code": project_code,
             "priority": priority,

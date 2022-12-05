@@ -1,3 +1,23 @@
+# Copyright 2022 Indoc Research
+# 
+# Licensed under the EUPL, Version 1.2 or – as soon they
+# will be approved by the European Commission - subsequent
+# versions of the EUPL (the "Licence");
+# You may not use this work except in compliance with the
+# Licence.
+# You may obtain a copy of the Licence at:
+# 
+# https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+# 
+# Unless required by applicable law or agreed to in
+# writing, software distributed under the Licence is
+# distributed on an "AS IS" basis,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied.
+# See the Licence for the specific language governing
+# permissions and limitations under the Licence.
+# 
+
 from pprint import pprint
 from time import time
 from app.models.meta_class import MetaService
@@ -13,10 +33,12 @@ class SrvLineageMgr(metaclass=MetaService):
     _logger = SrvLoggerFactory('api_lineage_action').get_logger()
 
     def __init__(self):
+        self._logger.info(f"received uname&pw: '{ConfigClass.ATLAS_ADMIN}', '{ConfigClass.ATLAS_PASSWD}'")
         self.base_url = ConfigClass.ATLAS_API
         self.lineage_endpoint = 'api/atlas/v2/lineage/uniqueAttribute/type'
         self.entity_bulk_endpoint = 'api/atlas/v2/entity/bulk'
         self.search_endpoint = 'api/atlas/v2/search/attribute'
+        
 
     def lineage_to_typename(self, pipeline_name):
         '''
@@ -27,34 +49,19 @@ class SrvLineageMgr(metaclass=MetaService):
             EPipeline.data_transfer.name: (EDataType.nfs_file.name, EDataType.nfs_file_processed.name)
         }.get(pipeline_name, (EDataType.nfs_file.name, EDataType.nfs_file_processed.name))
 
-    def entityname_to_typename(self, entity_name):
-        '''
-        return type_name
-        '''
-        if 'processed' in entity_name:
-            return EDataType.nfs_file_processed.name
-        if '/vre-data/tvbcloud/raw' in entity_name:
-            return EDataType.nfs_file_processed.name
-        return EDataType.nfs_file.name
-
     def create(self, creation_form: CreationForm, version = 'v1'):
         '''
         create lineage in Atlas
         '''
         ## v2 uses new entity type, v1 uses old one
         typenames = self.lineage_to_typename(creation_form.pipeline_name) if version == 'v1' else ['file_data', 'file_data']
+        print(f"_________typenames is: {typenames}")
         ## to atlas post form
-        # input_file_name = os.path.basename(self.get_full_path_by_geid(creation_form.input_geid, typenames[0]))
-        # output_file_name = os.path.basename(self.get_full_path_by_geid(creation_form.output_geid, typenames[1]))
         input_file_name = self.get_file_name_by_geid(creation_form.input_geid)
         output_file_name = self.get_file_name_by_geid(creation_form.output_geid)
 
         self._logger.debug('[SrvLineageMgr]input_file_path: ' + creation_form.input_geid)
         self._logger.debug('[SrvLineageMgr]output_file_path: ' + creation_form.output_geid)
-        # dt = datetime.datetime.now() - datetime.timedelta(seconds=2) ## temporary solution
-        # utc_time = dt.replace(tzinfo = datetime.timezone.utc)
-        # current_timestamp = utc_time.timestamp() if not creation_form.process_timestamp \
-        #     else creation_form.process_timestamp
         current_timestamp = time() if not creation_form.process_timestamp else creation_form.process_timestamp
         qualifiedName = '{}:{}:{}:{}:to:{}'.format(
             creation_form.project_code,
@@ -93,7 +100,6 @@ class SrvLineageMgr(metaclass=MetaService):
         return res
 
     def get(self, geid, type_name, direction, depth = 50):
-        type_name = type_name if type_name else self.entityname_to_typename(entity_name)
         url = self.base_url + self.lineage_endpoint \
             + '/{}'.format(type_name)
         response = requests.get(url, 
@@ -109,30 +115,21 @@ class SrvLineageMgr(metaclass=MetaService):
 
     def search_entity(self, global_entity_id, type_name = None):
         url = self.base_url + self.search_endpoint
+        typeName = type_name if type_name else "nfs_file_processed"
+        params = {
+                    'attrName': 'global_entity_id',
+                    'typeName': typeName,
+                    'attrValuePrefix':global_entity_id 
+        }
         response = requests.get(url, 
                 verify = False, 
-                params={
-                    'attrName': 'global_entity_id',
-                    'typeName': type_name,
-                    'attrValuePrefix':global_entity_id 
-                }, 
+                params = params, 
                 auth = HTTPBasicAuth(ConfigClass.ATLAS_ADMIN, ConfigClass.ATLAS_PASSWD)
         )
         if response.status_code == 200 and response.json().get('entities'):
             return response
         else:
-            response_processed_search = requests.get(url, 
-                verify = False, 
-                params={
-                    'attrName': 'global_entity_id',
-                    'typeName': "nfs_file_processed",
-                    'attrValuePrefix': global_entity_id 
-                }, 
-                auth = HTTPBasicAuth(ConfigClass.ATLAS_ADMIN, ConfigClass.ATLAS_PASSWD))
-            if response_processed_search.status_code == 200 and response_processed_search.json().get('entities'):
-                return response_processed_search
-            else:
-                raise(Exception('Not Found Entity: ' + global_entity_id))
+            raise(Exception('Not Found Entity: ' + global_entity_id))
 
     def get_guid_by_geid(self, geid, type_name = None):
         search_res = self.search_entity(geid, type_name)
@@ -146,18 +143,18 @@ class SrvLineageMgr(metaclass=MetaService):
             self._logger.error('Error when get_guid_by_geid: ' + search_res.text)
             return None
 
-    # deprecated with the full path
-    def get_full_path_by_geid(self, geid, type_name=None):
-        search_res = self.search_entity(geid, type_name)
-        if search_res.status_code == 200:
-            my_json = search_res.json()
-            self._logger.debug('[SrvLineageMgr]search_res : ' + str(my_json))
-            entities = my_json['entities']
-            found = [entity for entity in entities if entity['attributes']['global_entity_id'] == geid]
-            return found[0]['attributes']['full_path'] if found else None
-        else:
-            self._logger.error('Error when get_full_path_by_geid: ' + search_res.text)
-            return None
+    # # deprecated with the full path
+    # def get_full_path_by_geid(self, geid, type_name=None):
+    #     search_res = self.search_entity(geid, type_name)
+    #     if search_res.status_code == 200:
+    #         my_json = search_res.json()
+    #         self._logger.debug('[SrvLineageMgr]search_res : ' + str(my_json))
+    #         entities = my_json['entities']
+    #         found = [entity for entity in entities if entity['attributes']['global_entity_id'] == geid]
+    #         return found[0]['attributes']['full_path'] if found else None
+    #     else:
+    #         self._logger.error('Error when get_full_path_by_geid: ' + search_res.text)
+    #         return None
 
 
     def get_file_name_by_geid(self, geid):

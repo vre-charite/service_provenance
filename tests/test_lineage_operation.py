@@ -1,3 +1,23 @@
+# Copyright 2022 Indoc Research
+# 
+# Licensed under the EUPL, Version 1.2 or – as soon they
+# will be approved by the European Commission - subsequent
+# versions of the EUPL (the "Licence");
+# You may not use this work except in compliance with the
+# Licence.
+# You may obtain a copy of the Licence at:
+# 
+# https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+# 
+# Unless required by applicable law or agreed to in
+# writing, software distributed under the Licence is
+# distributed on an "AS IS" basis,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied.
+# See the Licence for the specific language governing
+# permissions and limitations under the Licence.
+# 
+
 import unittest
 from fastapi.testclient import TestClient
 from app.main import create_app    
@@ -34,7 +54,7 @@ class TestLineage(unittest.TestCase):
         payload = {
             "uploader": "gregmccoy",
             "file_name": "testfile.png",
-            "path": "/vre/data/test",
+            "path": "/data/test",
             "file_size": 123,
             "description": "A fake file used in unittests",
             "namespace": "greenroom",
@@ -46,7 +66,7 @@ class TestLineage(unittest.TestCase):
         if data_type == "processed":
             payload["operator"] = "gregmccoy"
             payload["procesed_pipeline"] = "fake_pipeline"
-            payload["path"] = "/vre/data/test/processed"
+            payload["path"] = "/data/test/processed"
         response = requests.post(ConfigClass.METADATA_API + "/v2/filedata", json=payload)
         json_payload = response.json()
         if json_payload['result']['mutatedEntities'].get('CREATE'):
@@ -85,6 +105,7 @@ class TestLineage(unittest.TestCase):
 
         response = self.client.post("/v1/lineage/", json=payload)
         self.log.info(f"STATUS: {response.status_code}")
+        self.log.info(f"Result: {response.json()}")
         result = response.json()['result']['mutatedEntities']
         self.assertEqual(response.status_code, 200)
         self.assertEqual(result['CREATE'][0]['typeName'], 'Process')
@@ -95,10 +116,12 @@ class TestLineage(unittest.TestCase):
 
     def test_02_get_lineage_raw(self):
         self.log.info("\n")
-        self.log.info(f"Test test_01_get_lineage_raw".center(80,'-'))
+        self.log.info(f"Test test_02_get_lineage_raw".center(80,'-'))
+        geid = self.entity_raw["attributes"]["global_entity_id"]
         params = {
-            "geid": self.entity_raw["attributes"]["global_entity_id"]
+            "geid": geid
         }
+        self.log.info(f"GEID: {geid}")
         response = self.client.get("/v1/lineage", params=params)
         self.log.info(f"STATUS: {response.status_code}")
         self.assertEqual(response.status_code, 200)
@@ -106,7 +129,7 @@ class TestLineage(unittest.TestCase):
 
     def test_03_get_lineage_processed(self):
         self.log.info("\n")
-        self.log.info(f"Test test_02_get_lineage_processed".center(80,'-'))
+        self.log.info(f"Test test_03_get_lineage_processed".center(80,'-'))
         params = {
             "geid": self.entity_processed["attributes"]["global_entity_id"]
         }

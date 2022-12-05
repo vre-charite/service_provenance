@@ -1,3 +1,23 @@
+# Copyright 2022 Indoc Research
+# 
+# Licensed under the EUPL, Version 1.2 or – as soon they
+# will be approved by the European Commission - subsequent
+# versions of the EUPL (the "Licence");
+# You may not use this work except in compliance with the
+# Licence.
+# You may obtain a copy of the Licence at:
+# 
+# https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+# 
+# Unless required by applicable law or agreed to in
+# writing, software distributed under the Licence is
+# distributed on an "AS IS" basis,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied.
+# See the Licence for the specific language governing
+# permissions and limitations under the Licence.
+# 
+
 from fastapi import APIRouter, Depends
 from fastapi_utils.cbv import cbv
 from app.models.base_models import APIResponse, EAPIResponseCode
@@ -26,36 +46,44 @@ class Lineage:
         geid = params.geid
         type_name = 'file_data'
 
-        response = self.lineage_mgr.get(geid, type_name, params.direction)
-        if response.status_code == 200:
-            response_json = response.json()
-            if response_json['guidEntityMap']:
-                add_display_path(response_json['guidEntityMap'])
-                pass
-            else:
-                res_default_entity = self.lineage_mgr.search_entity(
-                    geid, type_name=type_name)
-                if res_default_entity.status_code == 200 and len(res_default_entity.json()['entities']) > 0:
-                    default_entity = res_default_entity.json()['entities'][0]
-                    response_json['guidEntityMap'] = {
-                        '{}'.format(default_entity['guid']): default_entity
-                    }
-                    add_display_path(response_json['guidEntityMap'])
+        try:
+            response = self.lineage_mgr.get(geid, type_name, params.direction)
+            if response.status_code == 200:
+                response_json = response.json()
+                self._logger.info(f"The Response from atlas is: {str(response_json)}")
+                if response_json['guidEntityMap']:
+                    self.add_display_path(response_json['guidEntityMap'])
+                    pass
                 else:
-                    api_response.error_msg = "Invalid Entity"
-                    api_response.code = EAPIResponseCode.bad_request
-                    return api_response.json()
-            api_response.result = response_json
-            return api_response.json_response()
-        else:
-            self._logger.error('Error: %s', response.text)
-            api_response.error_msg = response.text
-            if "ATLAS-404" in response.json().get("errorCode"):
-                api_response.code = EAPIResponseCode.not_found
+                    res_default_entity = self.lineage_mgr.search_entity(
+                        geid, type_name=type_name)
+                    self._logger.info(f"The default_entity from atlas is: {str(res_default_entity.json())}")
+                    if res_default_entity.status_code == 200 and len(res_default_entity.json()['entities']) > 0:
+                        default_entity = res_default_entity.json()['entities'][0]
+                        response_json['guidEntityMap'] = {
+                            '{}'.format(default_entity['guid']): default_entity
+                        }
+                        self._logger.info(f"The current response json is: {str(response_json)}")
+                        self.add_display_path(response_json['guidEntityMap'])
+                    else:
+                        api_response.error_msg = "Invalid Entity"
+                        api_response.code = EAPIResponseCode.bad_request
+                        return api_response.json()
+                api_response.result = response_json
+                return api_response.json_response()
             else:
-                api_response.code = EAPIResponseCode.internal_error
+                self._logger.error('Error: %s', response.text)
+                api_response.error_msg = response.text
+                if "ATLAS-404" in response.json().get("errorCode"):
+                    api_response.code = EAPIResponseCode.not_found
+                    return api_response.json_response()
+                raise 
+        except Exception as e:
+            self._logger.error(str(e))
+            api_response.error_msg = str(e)
+            api_response.code = EAPIResponseCode.internal_error
             return api_response.json_response()
-        return api_response.json_response()
+
 
     @router.post('/', response_model=POSTLineageResponse, summary="POST Lineage")
     def post(self, data: POSTLineage):
@@ -106,28 +134,19 @@ class Lineage:
         return api_response.json_response()
 
 
-def add_display_path(guidEntityMap):
-    for key, value in guidEntityMap.items():
-        if value['typeName'] == 'Process':
-            continue
-        else:
-            node_label = 'File'
-
-            node_res = http_query_node(
-                node_label, {"global_entity_id": value['attributes']['global_entity_id']})
-
-            if node_res.status_code != 200:
+    def add_display_path(self, guidEntityMap):
+        for key, value in guidEntityMap.items():
+            if value['typeName'] == 'Process':
                 continue
 
+            geid = value['attributes']['global_entity_id']
+            node_res = http_query_node(geid)
+            if node_res.status_code != 200:
+                raise(Exception('Neo4j error'))
             node_data = node_res.json()
+            self._logger.info(f"Node in Neo4j is: {str(node_data)}")
             if len(node_data) == 0:
-                node_res = http_query_node(
-                    'TrashFile', {"global_entity_id": value['attributes']['global_entity_id']})
-                if node_res.status_code != 200:
-                    continue
-                node_data = node_res.json()
-                if len(node_data) == 0:
-                    continue
+                continue
 
             labels = node_data[0]['labels']
             value['attributes']['zone'] = labels
